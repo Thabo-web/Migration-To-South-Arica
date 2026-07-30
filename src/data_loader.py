@@ -4,61 +4,28 @@ from typing import Optional
 
 
 def _find_repo_root(start: Optional[Path] = None) -> Path:
-    """Find the repository root by searching common markers starting from a few likely locations.
+    """Walk up from `start` (or this file) to find the repository root.
 
-    Strategy:
-    - Try a list of candidate starting points: the directory containing this file (if available)
-      and the current working directory (cwd). This covers both script and notebook runs.
-    - Walk upward from each candidate looking for marker files/dirs (.git, README.md, requirements.txt,
-      pyproject.toml, or data). Return the first match found.
-    - If nothing is found, fall back to the first existing candidate or cwd.
+    Looks for common marker files/dirs (.git, README.md, requirements.txt, pyproject.toml, data)
+    and returns the first directory that contains any of those markers. If nothing is found,
+    returns the starting path or cwd.
     """
     markers = {".git", "README.md", "requirements.txt", "pyproject.toml", "data"}
-
-    candidates = []
     try:
-        # directory where this file lives (when running as a module/script)
-        file_dir = Path(__file__).resolve().parent
-        candidates.append(file_dir)
-        # also include the parent (repo layout like repo/src/...)
-        candidates.append(file_dir.parent)
+        cur = (start or Path(__file__).resolve().parent)
     except NameError:
-        file_dir = None
+        cur = (start or Path.cwd())
 
-    # always try cwd because notebooks often run with cwd set to the notebook folder
-    candidates.append(Path.cwd())
+    if not cur.exists():
+        cur = Path.cwd()
 
-    # de-duplicate while preserving order
-    seen = set()
-    uniq_candidates = []
-    for c in candidates:
-        try:
-            rc = c.resolve()
-        except Exception:
-            rc = c
-        if rc not in seen:
-            seen.add(rc)
-            uniq_candidates.append(c)
-
-    for start_dir in uniq_candidates:
-        cur = start_dir
-        if not cur.exists():
-            continue
-        while True:
-            if any((cur / m).exists() for m in markers):
-                return cur
-            if cur.parent == cur:
-                break
-            cur = cur.parent
-
-    # Fallback: if none of the searches found markers, prefer the repo-layout guess (file_dir.parent)
-    if file_dir is not None:
-        guessed = file_dir.parent
-        if guessed.exists():
-            return guessed
-
-    # final fallback
-    return Path.cwd()
+    while True:
+        if any((cur / m).exists() for m in markers):
+            return cur
+        if cur.parent == cur:
+            # Reached filesystem root, give up and return start/cwd
+            return start or Path.cwd()
+        cur = cur.parent
 
 
 def _default_csv_path() -> Path:
@@ -101,8 +68,6 @@ if __name__ == "__main__":
     try:
         csv_path = _default_csv_path()
         print("Looking for CSV at:", csv_path)
-        # Also print which repo root was detected for debugging
-        print("Repo root detected:", _find_repo_root())
         df = load_data()
         print("Rows:", len(df))
         print(df.head(5))
