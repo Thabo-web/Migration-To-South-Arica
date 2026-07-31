@@ -27,6 +27,11 @@ def load_cleaned_data(path: str = None) -> pd.DataFrame:
 
     df = standardize_column_names(df) #standardize column names
     df = convert_to_numeric(df, columns=df.columns[4:]) #convert specified columns to numeric
+    df = standardize_column_names(df) #standardize column names again after conversion
+    df =  summarize_country_data(df, country_name="South Africa") #summarize data for South Africa
+    df = remove_missing_values(df) #remove rows with missing values
+    df = save_cleaned_data(df) #save the cleaned data to a CSV file
+
 
     return df
 
@@ -103,12 +108,34 @@ def remove_missing_values(df: pd.DataFrame) -> pd.DataFrame:
         The DataFrame with rows containing missing values removed.
     """
     missing_val = df.isnull().sum()
+    print("Missing Values:\n", missing_val)
     return df.dropna()
+
+def save_cleaned_data(df: pd.DataFrame, path: str = "data/cleaned_migration_data.csv") -> None:
+    """Save the cleaned DataFrame to a CSV file.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        The cleaned DataFrame to save.
+    path : str, optional
+        The path where the CSV file will be saved, by default "data/cleaned_migration_data.csv".
+    """
+    df.to_csv(path, index=False)
+    print(f"Cleaned data saved to {path}")
 
 if __name__ == "__main__":
     # When executed as a script, load and print a quick summary of the cleaned data.
     try:
         df = load_cleaned_data()
         print("Cleaned Data Summary:\n", df.describe())
+        print("Cleaned Data Info:\n", df.info())
+        print("Cleaned Data Head:\n", df.head(5))
+        print("Cleaned Data Missing Values:\n", df.isnull().sum())
+        print("Cleaned Data Duplicates:\n", df.duplicated().sum())
+        print("Cleaned data saved successfully.")
+        print("Cleaned data saved to: data/cleaned_migration_data.csv")
+    except FileNotFoundError as fnf_error:
+        print(f"File not found error: {fnf_error}")
     except Exception as e:
         print(f"Error loading cleaned data: {e}")
