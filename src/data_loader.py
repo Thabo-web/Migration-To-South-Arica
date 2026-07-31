@@ -50,7 +50,7 @@ def load_data(path: Optional[str] = None, skiprows: int = 4, encoding: str = "ut
     """
     csv_path = Path(path) if path else _default_csv_path()
 
-    # If the calculated path doesn't exist, try a common fallback in case cwd is different
+    # If the calculated path doesn't exist, fallback in case cwd is different
     if not csv_path.exists():
         alt = Path.cwd() / "data" / csv_path.name
         if alt.exists():
