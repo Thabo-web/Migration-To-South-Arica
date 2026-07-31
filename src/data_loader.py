@@ -69,6 +69,7 @@ if __name__ == "__main__":
         csv_path = _default_csv_path()
         print("Looking for CSV at:", csv_path)
         df = load_data()
+        
         print("Rows:", len(df))
         print(df.head(5))
     except Exception as e:
