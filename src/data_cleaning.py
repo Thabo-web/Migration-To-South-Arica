@@ -32,7 +32,6 @@ def load_cleaned_data(path: str = None) -> pd.DataFrame:
     df = remove_missing_values(df) #remove rows with missing values
     df = save_cleaned_data(df) #save the cleaned data to a CSV file
 
-
     return df
 
 def standardize_column_names(df: pd.DataFrame) -> pd.DataFrame:
@@ -134,7 +133,8 @@ if __name__ == "__main__":
         print("Cleaned Data Missing Values:\n", df.isnull().sum())
         print("Cleaned Data Duplicates:\n", df.duplicated().sum())
         print("Cleaned data saved successfully.")
-        print("Cleaned data saved to: data/cleaned_migration_data.csv")
+        df = save_cleaned_data(df)
+        print("Cleaned data saved to: data/cleaned_migration_data.csv", df.head())
     except FileNotFoundError as fnf_error:
         print(f"File not found error: {fnf_error}")
     except Exception as e:

@@ -10,11 +10,11 @@ def _find_repo_root(start: Optional[Path] = None) -> Path:
     and returns the first directory that contains any of those markers. If nothing is found,
     returns the starting path or cwd.
     """
-    markers = {".git", "README.md", "requirements.txt", "pyproject.toml", "data"}
+    markers = {".git", "README.md", "requirements.txt", "pyproject.toml", "CONTRIBUTING.md", "data"}
     try:
-        cur = (start or Path(__file__).resolve().parent)
+        cur = (start or Path(__file__).resolve().parent)#Absolute path of the current file's directory
     except NameError:
-        cur = (start or Path.cwd())
+        cur = (start or Path.cwd())#current working directory if __file__ is not defined (e.g., in interactive mode)
 
     if not cur.exists():
         cur = Path.cwd()
@@ -67,10 +67,10 @@ if __name__ == "__main__":
     # When executed as a script, load and print a quick summary.
     try:
         csv_path = _default_csv_path()
-        print("Looking for CSV at:", csv_path)
+        print(f"Looking for CSV at {csv_path}")
         df = load_data()
         
-        print("Rows:", len(df))
-        print(df.head(5))
+        print("Dimensions: ", df.shape)
+        print(df.head())
     except Exception as e:
-        print("Error loading CSV:", e)
+        print("Error loading CSV: ", e)
