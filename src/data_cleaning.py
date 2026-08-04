@@ -22,14 +22,14 @@ def load_cleaned_data(path: str = None) -> pd.DataFrame:
     print("Migration to SA data of 7 rows:\n",df.head(8))
     print("Description:\n ",df.describe())
     print("Informatics:\t ",df.info())
-    print("# of Missing Values:\n", df.isnull().sum())
-    print("# of Duplicates: ", df.duplicated().sum()) 
+    print("Missing Values:\n", df.isnull().sum())
+    print("Duplicates: ", df.duplicated().sum()) 
 
     df = standardize_column_names(df) #standardize column names
     df = convert_to_numeric(df, columns=df.columns[4:]) #convert specified columns to numeric
     df = standardize_column_names(df) #standardize column names again after conversion
     df =  summarize_country_data(df, country_name="South Africa") #summarize data for South Africa
-    df = remove_missing_values(df) #remove rows with missing values
+    df = resolve_missing_values(df) #resolve missing values
     df = save_cleaned_data(df) #save the cleaned data to a CSV file
 
     return df
@@ -93,22 +93,41 @@ def summarize_country_data(df: pd.DataFrame, country_name: str) -> pd.DataFrame:
     summary = country_df.describe(include='all')
     return summary
 
-def remove_missing_values(df: pd.DataFrame) -> pd.DataFrame:
-    """Remove rows with missing values from the DataFrame.
+import pandas as pd
+import numpy as np
+from typing import Optional
 
-    Parameters
-    ----------
-    df : pd.DataFrame
-        The DataFrame from which to remove missing values.
+import pandas as pd
+import numpy as np
+from typing import Any
 
-    Returns
-    -------
-    pd.DataFrame
-        The DataFrame with rows containing missing values removed.
-    """
-    missing_val = df.isnull().sum()
-    print("Missing Values:\n", missing_val)
-    return df.dropna()
+def resolve_missing_values(df: pd.DataFrame) -> pd.DataFrame:
+    """Fill numeric columns' missing values with column means; drop fully-empty columns."""
+    df = df.copy()
+
+    # drop columns that are entirely null (e.g., "Unnamed: 70")
+    df = df.dropna(axis=1, how="all")
+
+    # Try to coerce columns that look numeric but are object dtype
+    for col in df.columns:
+        if df[col].dtype == object:
+            coerced = pd.to_numeric(df[col], errors="ignore")
+            # if coercion changed values to numeric dtype, keep it
+            if coerced.dtype != object:
+                df[col] = coerced
+
+    # Select numeric columns and compute their means
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    if len(numeric_cols) == 0:
+        return df
+
+    means = df[numeric_cols].mean(numeric_only=True)
+
+    # Fill numeric columns column-wise with their means (correct alignment by column name)
+    df[numeric_cols] = df[numeric_cols].fillna(means)
+
+    return df
+
 
 def save_cleaned_data(df: pd.DataFrame, path: str = "data/cleaned_migration_data.csv") -> None:
     """Save the cleaned DataFrame to a CSV file.
