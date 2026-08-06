@@ -1,6 +1,24 @@
 import pandas as pd 
 from src.data_loader import load_data
+import pandas as pd
+from typing import Iterable, Optional, Any
 #PYTHONPATH=. python3 src/data_cleaning.py
+
+
+
+def describe_data(df: pd.DataFrame) -> None:
+    """Print a summary of the DataFrame, including head, description, info, missing values, and duplicates.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        The DataFrame to describe.
+    """
+    print("Migration to SA data of 8 rows:\n\t\t", df.head(3))
+    print("Description:\n ", df.describe())
+    print("Informatics:\t ", df.info())
+    print("Missing Values:\n", df.isnull().sum())
+    print("Duplicates: ", df.duplicated().sum())
 
 
 
@@ -19,18 +37,35 @@ def load_cleaned_data(path: str = None) -> pd.DataFrame:
     """
     df = load_data() #load the data from the default path or provided path
 
-    print("Migration to SA data of 7 rows:\n",df.head(8))
-    print("Description:\n ",df.describe())
-    print("Informatics:\t ",df.info())
-    print("Missing Values:\n", df.isnull().sum())
-    print("Duplicates: ", df.duplicated().sum()) 
+    describe_data(df) #describe the data before cleaning
 
     df = standardize_column_names(df) #standardize column names
-    df = convert_to_numeric(df, columns=df.columns[4:]) #convert specified columns to numeric
-    df = standardize_column_names(df) #standardize column names again after conversion
+    df = convert_to_numeric(df, columns=df.columns[4:])#convert columns from index 4 onward to numeric, coercing non-numeric values to NaN    
+    df = rename_columns(df, column_mapping={"country_name": "Country Name", "country_code": "Country Code", "indicator_name": "Indicator Name", "indicator_code": "Indicator Code"}) #rename columns for clarity    
     df =  summarize_country_data(df, country_name="South Africa") #summarize data for South Africa
     df = resolve_missing_values(df) #resolve missing values
     df = save_cleaned_data(df) #save the cleaned data to a CSV file
+
+    return df
+
+def rename_columns(df: pd.DataFrame, column_mapping: dict) -> pd.DataFrame: 
+    """Rename columns of a DataFrame based on a provided mapping.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        The DataFrame whose columns are to be renamed.
+    column_mapping : dict
+        A dictionary mapping old column names to new column names.
+
+    Returns
+    -------
+    pd.DataFrame
+        The DataFrame with renamed columns.
+    """
+    df = standardize_column_names(df) #standardize column names before renaming
+    df = df.rename(columns=column_mapping)
+    describe_data(df) #describe the data after renaming columns
 
     return df
 
@@ -54,24 +89,28 @@ def standardize_column_names(df: pd.DataFrame) -> pd.DataFrame:
     )
     return df    
 
-def convert_to_numeric(df: pd.DataFrame, columns: list) -> pd.DataFrame:
-    """Convert specified columns of a DataFrame to numeric type.
-
-    Parameters
-    ----------
-    df : pd.DataFrame
-        The DataFrame whose columns are to be converted.
-    columns : list
-        A list of column names to convert to numeric.
-
-    Returns
-    -------
-    pd.DataFrame
-        The DataFrame with specified columns converted to numeric type.
+def convert_to_numeric(df: pd.DataFrame, columns: Optional[Iterable[str]] = None) -> pd.DataFrame:
     """
-    numeric_columns = ["Country Name", "Country Code", "Indicator Name", "Indicator Code"] + columns
-    for col in numeric_columns:
-        df[col] = pd.to_numeric(df[col], errors='coerce')
+    Convert the specified columns to numeric (coerce non-numeric to NaN).
+    'columns' may be a list, pandas Index, or None.
+    Returns a new DataFrame (does not modify input).
+    """
+    df = df.copy()
+
+    # default to columns from index 4 onward if None
+    if columns is None:
+        columns = df.columns[4:]
+
+    # normalize to a Python list of column names
+    cols = list(columns)
+
+    # ensure the columns exist in df
+    cols = [c for c in cols if c in df.columns]
+
+    # Convert each specified column to numeric safely
+    for c in cols:
+        df[c] = pd.to_numeric(df[c], errors="coerce")
+
     return df
 
 def summarize_country_data(df: pd.DataFrame, country_name: str) -> pd.DataFrame:
@@ -92,14 +131,6 @@ def summarize_country_data(df: pd.DataFrame, country_name: str) -> pd.DataFrame:
     country_df = df[df['country_name'] == country_name]
     summary = country_df.describe(include='all')
     return summary
-
-import pandas as pd
-import numpy as np
-from typing import Optional
-
-import pandas as pd
-import numpy as np
-from typing import Any
 
 def resolve_missing_values(df: pd.DataFrame) -> pd.DataFrame:
     """Fill numeric columns' missing values with column means; drop fully-empty columns."""
@@ -143,18 +174,32 @@ def save_cleaned_data(df: pd.DataFrame, path: str = "data/cleaned_migration_data
     print(f"Cleaned data saved to {path}")
 
 if __name__ == "__main__":
-    # When executed as a script, load and print a quick summary of the cleaned data.
+    import sys
+    import traceback
+
     try:
         df = load_cleaned_data()
-        print("Cleaned Data Summary:\n", df.describe())
-        print("Cleaned Data Info:\n", df.info())
-        print("Cleaned Data Head:\n", df.head(5))
-        print("Cleaned Data Missing Values:\n", df.isnull().sum())
-        print("Cleaned Data Duplicates:\n", df.duplicated().sum())
-        print("Cleaned data saved successfully.")
-        df = save_cleaned_data(df)
-        print("Cleaned data saved to: data/cleaned_migration_data.csv", df.head())
     except FileNotFoundError as fnf_error:
         print(f"File not found error: {fnf_error}")
+        sys.exit(1)
     except Exception as e:
-        print(f"Error loading cleaned data: {e}")
+        print("Error loading data:")
+        traceback.print_exc()
+        sys.exit(1)
+
+    if df is None or df.empty:
+        print("Loaded DataFrame is empty.")
+        sys.exit(1)
+
+    # show a summary
+    describe_data(df)
+
+    # save and report
+    try:
+        out_path = save_cleaned_data(df)  # expect a filepath string
+        print(f"Cleaned data saved to: {out_path}")
+        print(df.head(3))
+    except Exception as e:
+        print("Error saving cleaned data:")
+        traceback.print_exc()
+        sys.exit(1)
